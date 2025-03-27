@@ -1,0 +1,5 @@
+stock.csv
+*.csv
+*.pkl
+__pycache__/
+<fim_middle >pycache__/

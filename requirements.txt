@@ -1,0 +1,10 @@
+tensorflow==2.19.0
+tensorflow-estimator==2.15.0
+tensorflow-io-gcs-filesystem==0.31.0
+pandas==2.2.3
+scikit-learn==1.6.1
+matplotlib==3.9.4
+matplotlib-inline==0.1.7
+seaborn==0.13.2
+statsmodels==0.14.4
+ta-lib @ file:///ta_lib-0.6.3-cp310-cp310-win_amd64.whl#sha256=effb277b2470f44e41cd2ac350b2c73b790c6ca1f8f0cd65264f97358f1b8e24

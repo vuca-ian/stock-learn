@@ -1,0 +1,117 @@
+
+import pandas as pd
+import torch
+from torch.utils.data import Dataset, DataLoader, Subset
+from sklearn.preprocessing import RobustScaler
+class MultiScaleStockDataset(Dataset):
+    """
+    scaler_factors=['30min', '1hour', '4hour', '1day'],
+    """
+    def __init__(self, scaler_factors=None, data=None,
+                 seq_length=120,
+                 pred_steps=1,
+                 target_scale='30min',
+                 file_path=None, prefix=None):
+        super().__init__()
+        if scaler_factors is None:
+            scaler_factors = ['30min', '1hour', '4hour', '1day']
+        self.data = data
+        self.seq_length = seq_length
+        self.pred_steps= pred_steps
+        self.target_scale = target_scale
+        self.scaler_factors = scaler_factors
+        self.raw_data = {
+            scaler: self._import_synthetic_data(file_path=file_path, file_name=f"{prefix}{scaler}") for scaler in scaler_factors
+        }
+        self.aligned_data = self._align_time_index(data=self.raw_data)
+        self.feature_dims = {
+            scale: data.shape[1] for scale, data in self.raw_data.items()
+        }
+        self.feature_names = self.data[scaler_factors[0]].columns.tolist()
+
+    def split_dataset(self, test_ratio=0.2):
+        """时序安全的数据分割"""
+        total_len = len(self)
+        split_idx = int(total_len * (1 - test_ratio))
+        return Subset(self, range(split_idx)), Subset(self, range(split_idx, total_len))
+
+    def _align_time_index(self, base_scale='30min', data=None):
+        """以最细粒度时间轴为基准进行对齐"""
+        base_df = data[base_scale]
+        aligned_data = {}
+
+        for scale, df in self.data.items():
+            # 前向填充粗粒度数据
+            aligned_df = df.reindex(base_df.index, method='ffill')
+            aligned_data[scale] = aligned_df.dropna()
+        # 统一裁剪有效数据范围
+        min_len = min(len(df) for df in aligned_data.values())
+        for scale in aligned_data:
+            aligned_data[scale] = aligned_data[scale].iloc[:min_len]
+
+        return aligned_data
+    def __getitem__(self, idx):
+        """"""
+        features = {}
+        target_idx = idx + self.seq_length
+
+        # 获取各尺度特征序列
+        for scale in self.scaler_factors:
+            scale_data = self.aligned_data[scale].iloc[idx:idx + self.seq_length]
+            features[scale] = torch.FloatTensor(scale_data.drop(columns=['close']).values)
+
+        # 获取目标值
+        target = self.aligned_data[self.target_scale]['close'].iloc[
+                 target_idx:target_idx + self.pred_steps
+        ]
+
+        return {
+            'features': features,
+            'target': torch.FloatTensor(target.values)
+        }
+
+    def __len__(self):
+        return len(self.aligned_data[self.target_scale]) - self.seq_length - self.pred_steps
+
+    def _import_synthetic_data(self, file_path=None, file_name=None):
+        """生成数据"""
+        if file_path is None:
+            return self.data
+        data = pd.read_csv(f"{file_path}/{file_name}.csv",
+                           parse_dates=['date'],
+                           index_col='date')
+
+        return data.dropna()
+
+    def _normalize_data(self):
+        """分离特征与目标的标准化"""
+        self.scalers = {'features': {}, 'target': {}}
+
+        # 特征标准化（排除close）
+        for scale in self.scaler_factors:
+            feature_cols = [c for c in self.aligned_data[scale].columns if c != 'close']
+            feature_scaler = RobustScaler()
+            self.aligned_data[scale][feature_cols] = feature_scaler.fit_transform(
+                self.aligned_data[scale][feature_cols]
+            )
+            self.scalers['features'][scale] = feature_scaler
+
+        # 目标值标准化（仅close）
+        target_scaler = RobustScaler()
+        for scale in self.scaler_factors:
+            self.aligned_data[scale]['close'] = target_scaler.fit_transform(
+                self.aligned_data[scale][['close']]
+            )
+        self.scalers['target'] = target_scaler
+    def _validate_features(self):
+        """确保所有尺度包含相同特征且排除目标列"""
+        base_columns = set(self.aligned_data[self.scaler_factors[0]].columns) - {'close'}
+        for scale in self.scaler_factors:
+            assert 'close' in self.aligned_data[scale].columns, \
+                f"Close price missing in {scale} scale!"
+            assert set(self.aligned_data[scale].columns) - {'close'} == base_columns, \
+                f"Feature mismatch in {scale} scale!"
+    def print(self):
+        for scale, data in self.aligned_data.items():
+            print(f"{scale}: {data.shape}")
+            print(data.head(50))

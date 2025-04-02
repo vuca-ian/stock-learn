@@ -1,0 +1,78 @@
+{
+    "scaler_factors": [
+        "30min",
+        "1hour",
+        "4hour",
+        "1day"
+    ],
+    "data_path": "../data/",
+    "unit_test": false,
+    "props": [
+        {
+            "model_config": {
+                "seq_length": 24,
+                "pred_length": 4,
+                "gate_hidden_dim": 128,
+                "batch_size": 64,
+                "learning_rate": 1e-3,
+                "expert_hidden_dims": {
+                    "30min": 64,
+                    "1hour": 64,
+                    "4hour": 32,
+                    "1day": 32
+                },
+                "expert_arch": {
+                    "high_freq": {
+                        "conv_channels": [
+                            30,
+                            16,
+                            32
+                        ],
+                        "lstm_units": 64,
+                        "bidirectional": true
+                    },
+                    "low_freq": {
+                        "transformer_layers": 3,
+                        "nhead": 4,
+                        "ff_dim": 128
+                    }
+                },
+                "gate_network": {
+                    "hidden_dims": [
+                        256,
+                        128
+                    ],
+                    "dropout": 0.2
+                }
+            },
+            "trade_config": {
+                "batch_size": 128,
+                "num_epochs": 20,
+                "epochs": 20,
+                "optimizer": {
+                    "type": "AdamW",
+                    "lr": 1e-3,
+                    "weight_decay": 1e-4
+                },
+                "scheduler": {
+                    "type": "CosineAnnealingLR",
+                    "T_max": 50
+                },
+                "early_stopping": {
+                    "patience": 10,
+                    "delta": 0.001
+                }
+            },
+            "eval_config": {
+                "metrics": [
+                    "MAE",
+                    "MSE",
+                    "Sharpe",
+                    "MaxDrawdown"
+                ],
+                "validation_split": 0.2,
+                "backtest_period": 30
+            }
+        }
+    ]
+}

@@ -5,6 +5,12 @@
         "4hour",
         "1day"
     ],
+    "alignment_strategy": {
+        "30min": "ffill",
+        "1hour": "ffill",
+        "4hour": "linear",
+        "1day": "mixed"
+    },
     "data_path": "../data/",
     "unit_test": false,
     "props": [
@@ -14,21 +20,22 @@
                 "pred_length": 4,
                 "gate_hidden_dim": 128,
                 "batch_size": 64,
-                "learning_rate": 1e-3,
+                "learning_rate": 1e-4,
                 "expert_hidden_dims": {
                     "30min": 64,
                     "1hour": 64,
                     "4hour": 32,
                     "1day": 32
                 },
-                "expert_arch": {
+                "expert_config": {
                     "high_freq": {
                         "conv_channels": [
                             30,
                             16,
                             32
                         ],
-                        "lstm_units": 64,
+                        "lstm_units": 32,
+                        "num_layers": 2,
                         "bidirectional": true
                     },
                     "low_freq": {
@@ -39,16 +46,15 @@
                 },
                 "gate_network": {
                     "hidden_dims": [
-                        256,
-                        128
+                        128,
+                        64
                     ],
-                    "dropout": 0.2
+                    "dropout_rate": 0.2
                 }
             },
             "trade_config": {
                 "batch_size": 128,
-                "num_epochs": 20,
-                "epochs": 20,
+                "epochs": 2,
                 "optimizer": {
                     "type": "AdamW",
                     "lr": 1e-3,
@@ -71,7 +77,17 @@
                     "MaxDrawdown"
                 ],
                 "validation_split": 0.2,
-                "backtest_period": 30
+                "backtest_period": 30,
+                "benchmarks": {
+                    "baseline_mae": 0.05,
+                    "target_r2": 0.92,
+                    "mae_threshold": 0.02,
+                    "r2_threshold": 0.95
+                },
+                "visualization": {
+                    "prediction_window": 200,
+                    "residual_bins": 30
+                }
             }
         }
     ]
